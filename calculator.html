@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Calc</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@400;700;800&display=swap" rel="stylesheet"/>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg-deep:    #080c14;
+    --bg-mid:     #0d1220;
+    --glass-bg:   rgba(255,255,255,0.04);
+    --glass-border: rgba(255,255,255,0.08);
+    --glass-hover: rgba(255,255,255,0.09);
+    --neon:       #7efff5;
+    --neon-dim:   rgba(126,255,245,0.15);
+    --neon-glow:  rgba(126,255,245,0.35);
+    --accent:     #ff6b9d;
+    --accent-dim: rgba(255,107,157,0.18);
+    --accent-glow:rgba(255,107,157,0.4);
+    --amber:      #ffb347;
+    --amber-dim:  rgba(255,179,71,0.18);
+    --text-hi:    #f0f4ff;
+    --text-mid:   #8a93b2;
+    --text-lo:    #3d4560;
+    --radius-btn: 16px;
+    --radius-card:28px;
+  }
+
+  html, body {
+    height: 100%;
+    background: var(--bg-deep);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'DM Mono', monospace;
+    overflow: hidden;
+  }
+
+  /* Ambient background blobs */
+  body::before, body::after {
+    content: '';
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(90px);
+    pointer-events: none;
+    z-index: 0;
+  }
+  body::before {
+    width: 420px; height: 420px;
+    background: radial-gradient(circle, rgba(126,255,245,0.08) 0%, transparent 70%);
+    top: -80px; left: -80px;
+  }
+  body::after {
+    width: 380px; height: 380px;
+    background: radial-gradient(circle, rgba(255,107,157,0.08) 0%, transparent 70%);
+    bottom: -80px; right: -80px;
+  }
+
+  .card {
+    position: relative;
+    z-index: 1;
+    width: 340px;
+    background: linear-gradient(145deg, rgba(255,255,255,0.055) 0%, rgba(255,255,255,0.02) 100%);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-card);
+    backdrop-filter: blur(32px);
+    -webkit-backdrop-filter: blur(32px);
+    box-shadow:
+      0 32px 64px rgba(0,0,0,0.55),
+      0 0 0 1px rgba(255,255,255,0.04) inset,
+      0 1px 0 rgba(255,255,255,0.1) inset;
+    padding: 24px 20px 20px;
+    user-select: none;
+  }
+
+  /* Header */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 18px;
+  }
+  .logo {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 13px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--text-lo);
+  }
+  .mode-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--neon);
+    box-shadow: 0 0 10px var(--neon-glow), 0 0 20px var(--neon-glow);
+    animation: pulse-dot 2.4s ease-in-out infinite;
+  }
+  @keyframes pulse-dot {
+    0%,100% { opacity: 1; transform: scale(1); }
+    50%      { opacity: 0.5; transform: scale(0.85); }
+  }
+
+  /* Display */
+  .display {
+    background: rgba(0,0,0,0.35);
+    border: 1px solid rgba(255,255,255,0.05);
+    border-radius: 18px;
+    padding: 18px 20px 14px;
+    margin-bottom: 18px;
+    min-height: 92px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    overflow: hidden;
+    position: relative;
+  }
+  .display::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--neon-dim), transparent);
+  }
+
+  .expr {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    font-weight: 300;
+    color: var(--text-mid);
+    letter-spacing: 0.04em;
+    min-height: 18px;
+    text-align: right;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    transition: color 0.2s;
+  }
+
+  .result {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 40px;
+    color: var(--text-hi);
+    text-align: right;
+    letter-spacing: -0.02em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    transition: font-size 0.15s, color 0.2s;
+    line-height: 1.1;
+  }
+  .result.small { font-size: 28px; }
+  .result.xsmall { font-size: 20px; }
+  .result.flash {
+    color: var(--neon);
+    text-shadow: 0 0 24px var(--neon-glow);
+  }
+
+  /* Grid */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+  }
+
+  /* Buttons */
+  .btn {
+    position: relative;
+    height: 62px;
+    border: none;
+    border-radius: var(--radius-btn);
+    cursor: pointer;
+    font-family: 'DM Mono', monospace;
+    font-size: 18px;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    outline: none;
+    transition: transform 0.12s cubic-bezier(.34,1.56,.64,1), box-shadow 0.15s;
+    overflow: hidden;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Ripple */
+  .btn::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: radial-gradient(circle at var(--rx, 50%) var(--ry, 50%), rgba(255,255,255,0.18) 0%, transparent 65%);
+    opacity: 0;
+    transition: opacity 0.4s;
+    pointer-events: none;
+  }
+  .btn.rippling::after { opacity: 1; transition: opacity 0s; }
+
+  .btn:active { transform: scale(0.91); }
+
+  /* Number buttons */
+  .btn-num {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    color: var(--text-hi);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  }
+  .btn-num:hover {
+    background: var(--glass-hover);
+    border-color: rgba(255,255,255,0.13);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+    transform: translateY(-1px);
+  }
+
+  /* Operator buttons */
+  .btn-op {
+    background: var(--neon-dim);
+    border: 1px solid rgba(126,255,245,0.2);
+    color: var(--neon);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.3), 0 0 12px rgba(126,255,245,0.08);
+  }
+  .btn-op:hover {
+    background: rgba(126,255,245,0.22);
+    border-color: rgba(126,255,245,0.35);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.4), 0 0 20px var(--neon-glow);
+    transform: translateY(-1px);
+  }
+
+  /* Action buttons (C, %) */
+  .btn-action {
+    background: var(--accent-dim);
+    border: 1px solid rgba(255,107,157,0.2);
+    color: var(--accent);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+  }
+  .btn-action:hover {
+    background: rgba(255,107,157,0.26);
+    border-color: rgba(255,107,157,0.35);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.4), 0 0 20px var(--accent-glow);
+    transform: translateY(-1px);
+  }
+
+  /* Delete */
+  .btn-del {
+    background: var(--amber-dim);
+    border: 1px solid rgba(255,179,71,0.2);
+    color: var(--amber);
+    font-size: 20px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+  }
+  .btn-del:hover {
+    background: rgba(255,179,71,0.26);
+    border-color: rgba(255,179,71,0.35);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.4), 0 0 20px rgba(255,179,71,0.35);
+    transform: translateY(-1px);
+  }
+
+  /* Equals */
+  .btn-eq {
+    background: linear-gradient(135deg, var(--neon) 0%, #3ee8de 100%);
+    border: none;
+    color: #041714;
+    font-size: 22px;
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    box-shadow: 0 6px 24px rgba(126,255,245,0.3), 0 2px 8px rgba(0,0,0,0.4);
+    letter-spacing: 0;
+  }
+  .btn-eq:hover {
+    box-shadow: 0 8px 32px rgba(126,255,245,0.45), 0 2px 8px rgba(0,0,0,0.5);
+    transform: translateY(-2px);
+    filter: brightness(1.08);
+  }
+
+  /* Zero spans 2 cols */
+  .span2 { grid-column: span 2; }
+
+  /* Error shake */
+  @keyframes shake {
+    0%,100% { transform: translateX(0); }
+    20%      { transform: translateX(-6px); }
+    40%      { transform: translateX(6px); }
+    60%      { transform: translateX(-4px); }
+    80%      { transform: translateX(4px); }
+  }
+  .shake { animation: shake 0.35s ease; }
+
+  /* Keyboard hint */
+  .hint {
+    margin-top: 14px;
+    text-align: center;
+    font-size: 10px;
+    color: var(--text-lo);
+    letter-spacing: 0.08em;
+    font-family: 'DM Mono', monospace;
+  }
+
+  @media (max-width: 380px) {
+    .card { width: 96vw; padding: 18px 14px 14px; }
+    .btn  { height: 56px; font-size: 16px; }
+    .result { font-size: 34px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="card" id="card">
+  <div class="header">
+    <span class="logo">Calc</span>
+    <span class="mode-dot"></span>
+  </div>
+
+  <div class="display" id="display">
+    <div class="expr"  id="expr">&nbsp;</div>
+    <div class="result" id="result">0</div>
+  </div>
+
+  <div class="grid">
+    <!-- Row 1 -->
+    <button class="btn btn-action" data-action="clear">C</button>
+    <button class="btn btn-action" data-action="percent">%</button>
+    <button class="btn btn-del"    data-action="delete">⌫</button>
+    <button class="btn btn-op"     data-action="op" data-val="÷">÷</button>
+
+    <!-- Row 2 -->
+    <button class="btn btn-num" data-action="digit" data-val="7">7</button>
+    <button class="btn btn-num" data-action="digit" data-val="8">8</button>
+    <button class="btn btn-num" data-action="digit" data-val="9">9</button>
+    <button class="btn btn-op"  data-action="op"    data-val="×">×</button>
+
+    <!-- Row 3 -->
+    <button class="btn btn-num" data-action="digit" data-val="4">4</button>
+    <button class="btn btn-num" data-action="digit" data-val="5">5</button>
+    <button class="btn btn-num" data-action="digit" data-val="6">6</button>
+    <button class="btn btn-op"  data-action="op"    data-val="−">−</button>
+
+    <!-- Row 4 -->
+    <button class="btn btn-num" data-action="digit" data-val="1">1</button>
+    <button class="btn btn-num" data-action="digit" data-val="2">2</button>
+    <button class="btn btn-num" data-action="digit" data-val="3">3</button>
+    <button class="btn btn-op"  data-action="op"    data-val="+">+</button>
+
+    <!-- Row 5 -->
+    <button class="btn btn-num span2" data-action="digit" data-val="0">0</button>
+    <button class="btn btn-num" data-action="decimal">.</button>
+    <button class="btn btn-eq"  data-action="equals">=</button>
+  </div>
+
+  <p class="hint">keyboard supported</p>
+</div>
+
+<script>
+(function () {
+  const exprEl   = document.getElementById('expr');
+  const resultEl = document.getElementById('result');
+  const card     = document.getElementById('card');
+
+  // Calculator state
+  let current   = '0';   // current operand string
+  let prev      = null;  // previous operand value
+  let operator  = null;  // pending operator
+  let freshResult = false; // just evaluated
+  let exprStr   = '';    // expression display
+
+  /* ── Helpers ─────────────────────────────────────── */
+  function fmt(n) {
+    if (isNaN(n) || !isFinite(n)) return 'Error';
+    const s = +parseFloat(n.toPrecision(12));
+    return s.toLocaleString('en-US', { maximumFractionDigits: 10 });
+  }
+
+  function updateDisplay() {
+    const len = current.replace(/[^0-9]/g,'').length;
+    resultEl.classList.toggle('small',  len > 9);
+    resultEl.classList.toggle('xsmall', len > 13);
+    resultEl.textContent = current.replace(/^(\d+)/, n => (+n).toLocaleString('en-US'));
+    exprEl.textContent   = exprStr || '\u00a0';
+  }
+
+  function flashResult() {
+    resultEl.classList.add('flash');
+    setTimeout(() => resultEl.classList.remove('flash'), 420);
+  }
+
+  function shakeCard() {
+    card.classList.remove('shake');
+    void card.offsetWidth;
+    card.classList.add('shake');
+    setTimeout(() => card.classList.remove('shake'), 400);
+  }
+
+  /* ── Core operations ──────────────────────────────── */
+  function evaluate(a, op, b) {
+    switch (op) {
+      case '+': return a + b;
+      case '−': return a - b;
+      case '×': return a * b;
+      case '÷': return b === 0 ? NaN : a / b;
+      default:  return b;
+    }
+  }
+
+  function doDigit(d) {
+    if (freshResult) { current = d; exprStr = ''; freshResult = false; return; }
+    if (current === '0' && d !== '.') current = d;
+    else if (current.length < 15) current += d;
+  }
+
+  function doDecimal() {
+    if (freshResult) { current = '0.'; exprStr = ''; freshResult = false; return; }
+    if (!current.includes('.')) current += '.';
+  }
+
+  function doOperator(op) {
+    freshResult = false;
+    const cur = parseFloat(current.replace(/,/g,''));
+    if (prev !== null && operator) {
+      const res = evaluate(prev, operator, cur);
+      if (isNaN(res) || !isFinite(res)) { current = 'Error'; exprStr = ''; prev = null; operator = null; shakeCard(); updateDisplay(); return; }
+      prev = res;
+      current = fmt(res);
+    } else {
+      prev = cur;
+    }
+    operator = op;
+    exprStr  = fmt(prev) + ' ' + op;
+    current  = '0';
+    updateDisplay();
+  }
+
+  function doEquals() {
+    if (operator === null || prev === null) return;
+    const cur = parseFloat(current.replace(/,/g,''));
+    const res = evaluate(prev, operator, cur);
+    exprStr   = fmt(prev) + ' ' + operator + ' ' + fmt(cur) + ' =';
+    if (isNaN(res) || !isFinite(res)) {
+      current = 'Error'; shakeCard();
+    } else {
+      current = fmt(res);
+      flashResult();
+    }
+    prev = null; operator = null; freshResult = true;
+    updateDisplay();
+  }
+
+  function doClear() {
+    current = '0'; prev = null; operator = null; exprStr = ''; freshResult = false;
+    updateDisplay();
+  }
+
+  function doDelete() {
+    if (freshResult) { doClear(); return; }
+    if (current.length <= 1 || current === 'Error') { current = '0'; }
+    else { current = current.slice(0, -1); }
+    updateDisplay();
+  }
+
+  function doPercent() {
+    const v = parseFloat(current.replace(/,/g,''));
+    if (isNaN(v)) return;
+    current = fmt(prev !== null ? (prev * v) / 100 : v / 100);
+    updateDisplay();
+  }
+
+  /* ── Button click ─────────────────────────────────── */
+  document.querySelectorAll('.btn').forEach(btn => {
+    btn.addEventListener('pointerdown', e => {
+      // Ripple origin
+      const rect = btn.getBoundingClientRect();
+      btn.style.setProperty('--rx', ((e.clientX - rect.left) / rect.width * 100) + '%');
+      btn.style.setProperty('--ry', ((e.clientY - rect.top)  / rect.height* 100) + '%');
+      btn.classList.add('rippling');
+      setTimeout(() => btn.classList.remove('rippling'), 400);
+    });
+
+    btn.addEventListener('click', () => {
+      const action = btn.dataset.action;
+      const val    = btn.dataset.val;
+      if      (action === 'digit')   doDigit(val);
+      else if (action === 'op')      doOperator(val);
+      else if (action === 'equals')  doEquals();
+      else if (action === 'clear')   doClear();
+      else if (action === 'delete')  doDelete();
+      else if (action === 'decimal') doDecimal();
+      else if (action === 'percent') doPercent();
+      updateDisplay();
+    });
+  });
+
+  /* ── Keyboard ─────────────────────────────────────── */
+  const keyMap = {
+    '0':'digit:0','1':'digit:1','2':'digit:2','3':'digit:3','4':'digit:4',
+    '5':'digit:5','6':'digit:6','7':'digit:7','8':'digit:8','9':'digit:9',
+    '+':'op:+','-':'op:−','*':'op:×','/':'op:÷','x':'op:×','X':'op:×',
+    'Enter':'equals','=':'equals','Escape':'clear',
+    'Backspace':'delete','Delete':'delete',
+    '.':'decimal',',':'decimal','%':'percent'
+  };
+
+  document.addEventListener('keydown', e => {
+    const map = keyMap[e.key];
+    if (!map) return;
+    e.preventDefault();
+    const [action, val] = map.split(':');
+
+    // Highlight button
+    let sel = null;
+    if (action === 'digit')  sel = `[data-action="digit"][data-val="${val}"]`;
+    else if (action === 'op') sel = `[data-action="op"][data-val="${val}"]`;
+    else sel = `[data-action="${action}"]`;
+    const btn = document.querySelector(sel);
+    if (btn) { btn.classList.add('rippling'); setTimeout(() => btn.classList.remove('rippling'), 300); btn.dispatchEvent(new MouseEvent('click')); return; }
+
+    if      (action === 'digit')   doDigit(val);
+    else if (action === 'op')      doOperator(val);
+    else if (action === 'equals')  doEquals();
+    else if (action === 'clear')   doClear();
+    else if (action === 'delete')  doDelete();
+    else if (action === 'decimal') doDecimal();
+    else if (action === 'percent') doPercent();
+    updateDisplay();
+  });
+
+  updateDisplay();
+})();
+</script>
+</body>
+</html>
